@@ -1,0 +1,67 @@
+<#
+.SYNOPSIS
+    Collects recent account lockout events (Event ID 4740) from all domain controllers
+    and displays the username, source computer, and DC where the event occurred.
+
+.DESCRIPTION
+    This script queries all DCs in the domain for recent Event ID 4740 events,
+    extracts key fields from each, and outputs a report.
+    You can easily export results to CSV for reporting or automation.
+
+.NOTES
+    Requires: ActiveDirectory module
+    Run as: Domain Administrator or equivalent
+#>
+
+Import-Module ActiveDirectory
+
+# ---- Configuration ----
+$HoursToLookBack = 48    # How far back to search for lockouts (in hours)
+$OutputCSV = "C:\Temp\Lockout_Report.csv"
+
+# ---- Gather all DCs ----
+$DCs = Get-ADDomainController -Filter * | Select-Object -ExpandProperty HostName
+
+Write-Host "Collecting lockout events from $($DCs.Count) domain controllers..." -ForegroundColor Cyan
+
+$LockoutEvents = @()
+
+foreach ($DC in $DCs) {
+    Write-Host "→ Checking $DC..." -ForegroundColor Yellow
+    try {
+        $Events = Get-WinEvent -ComputerName $DC -FilterHashtable @{
+            LogName='Security';
+            Id=4740;
+            StartTime=(Get-Date).AddHours(-$HoursToLookBack)
+        } -ErrorAction Stop
+
+        foreach ($Event in $Events) {
+            $xml = [xml]$Event.ToXml()
+            $EventData = $xml.Event.EventData.Data
+
+            $LockoutEvents += [PSCustomObject]@{
+                TimeCreated = $Event.TimeCreated
+                User        = $EventData[0].'#text'
+                CallerComputer = $EventData[1].'#text'
+                DomainController = $DC
+            }
+        }
+    }
+    catch {
+        Write-Warning "Failed to query $DC: $_"
+    }
+}
+
+# ---- Output ----
+if ($LockoutEvents.Count -eq 0) {
+    Write-Host "✅ No lockout events found in the past $HoursToLookBack hours." -ForegroundColor Green
+} else {
+    $LockoutEvents |
+        Sort-Object TimeCreated -Descending |
+        Tee-Object -Variable SortedResults |
+        Format-Table TimeCreated, User, CallerComputer, DomainController -AutoSize
+
+    # Export to CSV
+    $SortedResults | Export-Csv -Path $OutputCSV -NoTypeInformation
+    Write-Host "`n📁 Report exported to: $OutputCSV" -ForegroundColor Cyan
+}
