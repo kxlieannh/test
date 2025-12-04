@@ -1,7 +1,7 @@
 
 ---
 
-## **README.md – SAS_Test Repository**
+## **README.md – Test Repository**
 
 ### Repository Name
 
