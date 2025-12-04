@@ -5,7 +5,7 @@
 
 ### Repository Name
 
-**SAS_test**
+**Test**
 Scripts • Automation • System Testing
 
 ---
