@@ -1,75 +1,106 @@
+
+---
+
+#  AD Account Lockout – Wireshark Guide
+
+This guide helps you use **Wireshark** to find out **which device is causing Active Directory account lockouts**.
+
+---
+
+##  Key Protocols to Filter
+
 Use these filters to see where bad logins are coming from:
 
-1. Kerberos (main AD login)
-   
+### **1. Kerberos (main AD login)**
+
+```
 kerberos
-
 kerberos.KRB_ERROR
+```
 
-3. NTLM (fallback login method)
-   
+### **2. NTLM (fallback login method)**
+
+```
 ntlmssp
-
 ntlmssp.auth
+```
 
-4. LDAP / LDAPS (services, apps, printers authenticating)
-   
+### **3. LDAP / LDAPS (services, apps, printers authenticating)**
+
+```
 ldap
-
 ldap.bindRequest
-
 ldap.bindResponse.resultCode != 0
+```
 
-5. SMB (mapped network drives causing lockouts)
-   
+### **4. SMB (mapped network drives causing lockouts)**
+
+```
 smb2
-
 smb2.nt_status == 0xc000006d
+```
 
-6. RPC / Netlogon (Windows services, scheduled tasks)
-   
+### **5. RPC / Netlogon (Windows services, scheduled tasks)**
+
+```
 rpc
-
 dcerpc
-
 netlogon
+```
 
-7. DNS (devices looking for a Domain Controller)
-   
+### **6. DNS (devices looking for a Domain Controller)**
+
+```
 dns && dns.qry.name contains "ldap"
+```
 
-9. RDP (Remote Desktop bad logins)
-    
+### **7. RDP (Remote Desktop bad logins)**
+
+```
 tcp.port == 3389 and ntlmssp.auth
+```
 
-11. VPN / RADIUS (VPN login failures)
-    
+### **8. VPN / RADIUS (VPN login failures)**
+
+```
 radius
-
 eap
+```
 
-13. Exchange / Mobile Email Apps
-    
+### **9. Exchange / Mobile Email Apps**
+
+```
 tcp.port == 443 and http contains "ActiveSync"
+```
 
-15. Legacy / Old Devices
-    
+### **10. Legacy / Old Devices**
+
+```
 browser
-
 nbns
-
 cifs
+```
 
-All-In-One Filter (use this if unsure)
+---
+
+##  All-In-One Filter (use this if unsure)
 
 This shows almost everything related to AD authentication:
 
+```
 kerberos or ntlmssp or ldap or smb2 or rpc or dcerpc or netlogon or radius or eap or cifs or browser
+```
 
-What To Look For
+---
 
-Pick a failed authentication packet.
+##  What To Look For
 
-Look at the Source IP → this is the device causing the lockout.
+1. Pick a failed authentication packet.
+2. Look at the **Source IP** → this is the device causing the lockout.
+3. Expand the protocol layer to see the **username** being used.
 
-Expand the protocol layer to see the username being used.
+---
+* A **Wireshark profile file** you can import
+* A **PowerShell script** to live-monitor lockouts
+
+Just tell me!
